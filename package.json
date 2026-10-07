@@ -14,7 +14,7 @@
     "build:web": "next build && node scripts/prepare-standalone.js",
     "app": "npm run build:web && electron .",
     "dist": "npm run build:web && electron-builder --win",
-    "release": "npm run build:web && electron-builder --win --publish always"
+    "release": "npm run build:web && electron-builder --win --publish never && node scripts/publish-release.js"
   },
   "dependencies": {
     "electron-updater": "^6.8.9"

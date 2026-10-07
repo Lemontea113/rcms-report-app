@@ -59,15 +59,17 @@
 
 ## 개발자용: 새 버전 배포하는 법
 
-1. `package.json`의 `"version"`을 올립니다. (예: `1.0.0` → `1.0.1`)
-2. GitHub 로그인 토큰을 넣고 배포 명령을 실행합니다.
+1. `package.json`의 `"version"`을 올립니다. (예: `1.1.0` → `1.1.1`)
+2. 변경 사항을 커밋하고 GitHub에 올립니다(`git push`). 릴리스 태그가 GitHub의 최신 코드에 붙기 때문입니다.
+3. 배포 명령을 실행합니다. (GitHub CLI `gh`에 로그인되어 있어야 합니다.)
 
    ```bash
-   GH_TOKEN=$(gh auth token) npm run release
+   npm run release
    ```
 
-   웹 화면 빌드 → 설치 파일 생성 → GitHub Releases 업로드까지 한 번에 진행됩니다.
-3. 사용자들은 다음에 프로그램을 켤 때 업데이트 안내를 받습니다.
+   웹 화면 빌드 → 설치 파일 생성 → 업데이트 정보(`latest.yml`)와 설치 파일의 짝 검사 →
+   GitHub Releases 업로드까지 한 번에 진행됩니다.
+4. 사용자들은 다음에 프로그램을 켤 때 업데이트 안내를 받습니다.
 
 ### 기타 명령어
 
