@@ -1,4 +1,5 @@
-import { chromium, type Browser, type BrowserContext, type Page } from "playwright";
+import type { Browser, BrowserContext, Page } from "playwright";
+import { launchLoginBrowser } from "./loginBrowser";
 
 interface RcmsSession {
   browser: Browser;
@@ -12,13 +13,7 @@ declare global {
 
 export async function openLoginBrowser(): Promise<void> {
   await closeSession();
-  // 설치형 프로그램에 크롬을 통째로 넣으면 너무 커지므로, 모든 Windows PC에 기본으로
-  // 깔려 있는 Edge를 불러다 쓴다(사용자가 브라우저를 따로 설치할 필요가 없다).
-  const browser = await chromium.launch({
-    channel: "msedge",
-    headless: false,
-    args: ["--start-maximized"],
-  });
+  const browser = await launchLoginBrowser();
   // 창을 최대화된 크기로 띄워서, 조회 결과 표가 스크롤 없이 최대한 많이 보이게 한다.
   const context = await browser.newContext({ viewport: null, acceptDownloads: true });
   const page = await context.newPage();

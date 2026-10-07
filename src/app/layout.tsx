@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "RCMS 사용실적보고서 조회",
-  description: "RCMS 과제번호 목록으로 사용실적보고서를 자동 조회합니다.",
+  title: "정산 업무 자동화",
+  description: "RCMS 사용실적보고서 조회와 이지바로 연구원정보 수집을 자동으로 처리합니다.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

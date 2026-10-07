@@ -220,7 +220,9 @@ async function downloadUsageReportHtml(popup: Page, downloadDir: string, project
     clickByText(popup, "확인"), // 저장 다이얼로그 확인(기본값 그대로) → 실제 다운로드
   ]);
 
-  const filePath = path.join(downloadDir, `${projectNo}.html`);
+  // turbopackIgnore: 임시 폴더에 받는 파일이다 — 빌드 도구가 프로젝트 안의 .html 파일을
+  // 프로그램에 끌어넣지 않도록 표시한다.
+  const filePath = path.join(/*turbopackIgnore: true*/ downloadDir, `${projectNo}.html`);
   await download.saveAs(filePath);
   addLog(`HTML 파일 저장됨: ${filePath}`);
   return filePath;

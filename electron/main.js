@@ -103,7 +103,7 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1100,
     height: 900,
-    title: `RCMS 사용실적보고서 조회 v${app.getVersion()}`,
+    title: `정산 업무 자동화 v${app.getVersion()}`,
     autoHideMenuBar: true,
     webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true },
   });
@@ -137,11 +137,11 @@ function createWindow() {
   mainWindow.loadURL(serverUrl);
 }
 
-// 프로그램을 끌 때, 열려 있던 RCMS 로그인 창(Edge)도 같이 닫히도록 먼저 정리 요청을 보낸다.
+// 프로그램을 끌 때, 열려 있던 로그인 창(RCMS·이지바로)도 같이 닫히도록 먼저 정리 요청을 보낸다.
 function requestServerCleanup() {
   return new Promise((resolve) => {
     if (!serverUrl || !serverProcess) return resolve();
-    const req = http.request(`${serverUrl}/api/reset`, { method: "POST", timeout: 3000 }, (res) => {
+    const req = http.request(`${serverUrl}/api/shutdown`, { method: "POST", timeout: 3000 }, (res) => {
       res.resume();
       res.on("end", resolve);
     });

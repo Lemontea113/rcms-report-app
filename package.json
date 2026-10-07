@@ -1,7 +1,7 @@
 {
   "name": "rcms-report-app",
   "productName": "RCMS Report App",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "RCMS 과제번호 목록으로 사용실적보고서를 자동 조회합니다.",
   "author": "Lemontea113",
   "private": true,
@@ -35,7 +35,9 @@
     "playwright": "^1.63.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
+    "sharp": "^0.35.5",
     "tailwindcss": "^4",
+    "tesseract.js": "^7.0.0",
     "typescript": "^5"
   },
   "build": {
