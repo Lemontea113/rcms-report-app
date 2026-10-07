@@ -51,11 +51,12 @@
     ],
     "afterPack": "scripts/after-pack.js",
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "icon": "electron/icon.ico"
     },
     "nsis": {
       "artifactName": "RCMS-Report-App-Setup-${version}.${ext}",
-      "shortcutName": "RCMS 사용실적보고서 조회",
+      "shortcutName": "정산 업무 자동화",
       "oneClick": true,
       "perMachine": false
     },

@@ -105,6 +105,7 @@ function createWindow() {
     height: 900,
     title: `정산 업무 자동화 v${app.getVersion()}`,
     autoHideMenuBar: true,
+    icon: path.join(__dirname, "icon.ico"),
     webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true },
   });
   mainWindow.setMenu(null);
