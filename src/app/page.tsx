@@ -10,55 +10,7 @@ const STATE_BADGE: Record<TaskState, string> = {
   실패: "bg-red-100 text-red-700",
 };
 
-const ACCESS_PASSWORD = "6346";
-const UNLOCK_STORAGE_KEY = "rcms_unlocked";
-
-function PasswordGate({ onUnlock }: { onUnlock: () => void }) {
-  const [input, setInput] = useState("");
-  const [error, setError] = useState("");
-
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (input === ACCESS_PASSWORD) {
-      try {
-        sessionStorage.setItem(UNLOCK_STORAGE_KEY, "true");
-      } catch {
-        // 세션 저장이 안 되도 이번 화면 진입은 계속 허용한다.
-      }
-      onUnlock();
-    } else {
-      setError("비밀번호가 올바르지 않습니다.");
-    }
-  }
-
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-pink-50">
-      <form
-        onSubmit={handleSubmit}
-        className="w-full max-w-xs rounded-2xl bg-white p-6 shadow-sm ring-1 ring-pink-100"
-      >
-        <h1 className="mb-4 text-center text-lg font-bold text-pink-900">비밀번호 입력</h1>
-        <input
-          type="password"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          autoFocus
-          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-center text-sm focus:border-pink-400 focus:outline-none"
-        />
-        {error && <p className="mt-2 text-center text-sm text-red-600">{error}</p>}
-        <button
-          type="submit"
-          className="mt-4 w-full rounded-full bg-pink-600 py-2 text-sm font-semibold text-white hover:bg-pink-700"
-        >
-          확인
-        </button>
-      </form>
-    </div>
-  );
-}
-
 export default function Home() {
-  const [unlocked, setUnlocked] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [job, setJob] = useState<JobState>({ phase: "idle", tasks: [], logs: [] });
   const [busy, setBusy] = useState(false);
@@ -66,20 +18,6 @@ export default function Home() {
   const [stopRequested, setStopRequested] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const logEndRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    // sessionStorage(브라우저 탭 저장소)는 서버에는 없는 정보라서, 마운트 후
-    // 클라이언트에서만 확인할 수 있다 — 첫 화면은 항상 잠긴 상태로 그렸다가,
-    // 이전에 이 탭에서 비밀번호를 맞혔던 기록이 있으면 곧바로 풀어준다.
-    try {
-      if (sessionStorage.getItem(UNLOCK_STORAGE_KEY) === "true") {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setUnlocked(true);
-      }
-    } catch {
-      // 세션 저장소를 못 쓰면 매번 비밀번호를 다시 입력하게 된다 — 문제 없음.
-    }
-  }, []);
 
   useEffect(() => {
     return () => {
@@ -171,10 +109,6 @@ export default function Home() {
   }
 
   const doneCount = job.tasks.filter((t) => t.state === "완료" || t.state === "실패").length;
-
-  if (!unlocked) {
-    return <PasswordGate onUnlock={() => setUnlocked(true)} />;
-  }
 
   return (
     <div className="min-h-screen bg-pink-50">

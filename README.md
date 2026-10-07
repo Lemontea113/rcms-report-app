@@ -1,36 +1,64 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# RCMS 사용실적보고서 조회 프로그램
 
-## Getting Started
+과제번호 목록을 엑셀로 올리면, RCMS에서 사용실적보고서 정보를 자동으로 모아 엑셀로 만들어 주는 Windows 프로그램입니다.
 
-First, run the development server:
+## 설치 방법 (사용하는 분)
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+1. [최신 버전 다운로드 페이지](https://github.com/Lemontea113/rcms-report-app/releases/latest)에서 `RCMS-Report-App-Setup-x.x.x.exe`를 받습니다.
+2. 받은 파일을 더블클릭합니다.
+   - **"Windows의 PC 보호" 파란 창이 뜨면** → `추가 정보` → `실행`을 누르세요.
+     (프로그램에 유료 인증서 서명이 없어서 뜨는 안내이며, 프로그램 자체의 문제는 아닙니다.)
+3. 설치가 끝나면 바탕화면과 시작 메뉴에 **"RCMS 사용실적보고서 조회"** 아이콘이 생깁니다.
+
+> 따로 설치할 것은 없습니다. RCMS 로그인 창은 Windows에 기본으로 들어 있는 **Microsoft Edge**로 열립니다.
+
+## 사용 방법
+
+1. 프로그램을 켭니다.
+2. "과제번호" 열이 있는 엑셀 파일을 선택하고 **수행**을 누릅니다.
+3. 새로 뜨는 Edge 창에서 RCMS에 로그인합니다.
+4. 프로그램으로 돌아와 **로그인 완료**를 누르면 자동 조회가 시작됩니다.
+5. 끝나면 **다운로드**를 눌러 결과 엑셀을 저장합니다.
+
+## 업데이트
+
+새 버전이 나오면 프로그램을 켤 때 **"새 버전이 나왔습니다. 지금 업데이트할까요?"** 안내가 뜹니다.
+`업데이트`를 누르면 내려받은 뒤 다시 시작하면서 자동으로 설치됩니다.
+
+## 문제가 생겼을 때
+
+프로그램 기록 파일을 확인하거나 전달해 주세요.
+
+```
+%APPDATA%\RCMS Report App\logs\main.log
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+(파일 탐색기 주소창에 위 경로를 붙여넣으면 열립니다.)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 개발자용: 새 버전 배포하는 법
 
-## Learn More
+1. `package.json`의 `"version"`을 올립니다. (예: `1.0.0` → `1.0.1`)
+2. GitHub 로그인 토큰을 넣고 배포 명령을 실행합니다.
 
-To learn more about Next.js, take a look at the following resources:
+   ```bash
+   GH_TOKEN=$(gh auth token) npm run release
+   ```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+   웹 화면 빌드 → 설치 파일 생성 → GitHub Releases 업로드까지 한 번에 진행됩니다.
+3. 사용자들은 다음에 프로그램을 켤 때 업데이트 안내를 받습니다.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### 기타 명령어
 
-## Deploy on Vercel
+| 명령어 | 하는 일 |
+|---|---|
+| `npm run dev` | 웹 화면만 개발 모드로 실행 (http://localhost:3100) |
+| `npm run app` | 프로그램 창으로 실행해 보기 (설치 파일 없이) |
+| `npm run dist` | 설치 파일만 만들기 (`dist` 폴더, 업로드 안 함) |
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### 구조
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- `src/` — 화면과 RCMS 자동 조회 로직 (Next.js)
+- `electron/main.js` — 프로그램 본체: 화면 서버를 내 컴퓨터 안에서만 켜고, 창을 띄우고, 업데이트를 확인
+- `scripts/` — 설치 파일을 만들 때 쓰는 보조 스크립트
