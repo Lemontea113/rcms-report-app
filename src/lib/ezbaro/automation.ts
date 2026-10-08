@@ -4,14 +4,16 @@
 //  - 로그인 창은 RCMS 기능과 같은 방식(lib/loginBrowser.ts, 설치된 Chrome)으로 연다.
 //  - 글자 인식(OCR) 언어 데이터는 인터넷에서 받지 않고 프로그램에 들어 있는 ocr-data 폴더에서 읽는다.
 //  - 디버그 파일은 프로그램 폴더 대신 임시 폴더(%TEMP%\rcms-report-app\ezbaro-debug)에 남긴다.
+//  - 성명·휴대폰 글자 인식은 PC의 화면 배율과 상관없이 동작하도록 값 칸만 잘라 읽는다(./ocr.ts).
+//    읽은 성명이 목록 화면의 연구책임자와 다르면 비고에 "이름 확인 필요"를 남긴다.
 
 import fs from "fs";
 import os from "os";
 import path from "path";
 import type { Browser, BrowserContext, Page } from "playwright";
-import sharp from "sharp";
-import { createWorker, PSM, type Worker } from "tesseract.js";
+import { createWorker, type Worker } from "tesseract.js";
 import { launchLoginBrowser } from "../loginBrowser";
+import { needsNameCheck, preferGridSpelling, readResearcherInfo, type ResearcherOcrResult } from "./ocr";
 import type { EzbaroResult, EzbaroRow } from "./store";
 
 const DOWNLOADS_DIR = path.join(os.homedir(), "Downloads");
@@ -76,16 +78,8 @@ async function terminateOcrWorker() {
   }
 }
 
-interface OcrResult {
-  name: string;
-  phone: string;
-  debug?: string;
-}
-
-// "연구원 정보" 구역(성명·휴대폰·이메일이 있는 부분)을 통째로 한 번만 사진으로 찍어서
-// OCR로 읽은 뒤, 그 안에서 "성명"/"휴대폰" 글자 옆의 값을 찾아낸다.
-// 조각조각 자르는 것보다 여유 있게 한 번에 찍는 게 훨씬 안정적이다.
-async function ocrResearcherInfoBlock(popup: Page): Promise<OcrResult> {
+// 성명·휴대폰을 읽는다(방식은 ./ocr.ts 참고). 팝업의 "연구원 정보"는 늦게 채워지므로 먼저 충분히 기다린다.
+async function ocrResearcherInfo(popup: Page): Promise<ResearcherOcrResult> {
   const nameLocator = popup.getByText("성명", { exact: true }).first();
   // 일부 팝업은 "연구원 정보" 부분 자체가 코드에 나타나기까지 유독(1분 넘게) 오래 걸려서,
   // 사진을 찍기 전에 "성명" 글자가 실제로 나타날 때까지 아주 넉넉하게 기다린다.
@@ -93,49 +87,11 @@ async function ocrResearcherInfoBlock(popup: Page): Promise<OcrResult> {
   // 라벨(글자)만 나타난 것과 그 옆의 실제 값이 채워진 것은 다른 시점이다.
   // 사진을 찍기 직전에 값이 채워졌는지 한 번 더(최대 60초) 확인해서, 값이 비어있는 순간을 찍지 않게 한다.
   await waitForDetailDataLoaded(popup, 60000);
-  const nameBox = await nameLocator.boundingBox().catch(() => null);
-  if (!nameBox) return { name: "", phone: "", debug: "성명 라벨 위치를 찾지 못함(60초 기다림)" };
-
-  const viewport = popup.viewportSize() || { width: 1280, height: 2000 };
-  const PADDING = 20;
-  const clip = {
-    x: 0,
-    y: Math.max(0, Math.round(nameBox.y) - PADDING),
-    width: viewport.width,
-    height: Math.min(viewport.height - Math.round(nameBox.y) + PADDING, Math.round(nameBox.height) * 3 + PADDING * 2), // 성명·휴대폰(이메일) 두 줄 정도
-  };
-
-  const rawBuffer = await popup.screenshot({ clip }).catch(() => null);
-  if (!rawBuffer) return { name: "", phone: "", debug: `사진 촬영 실패 (clip=${JSON.stringify(clip)})` };
-
-  // 화면 확대는 이 사이트에서 오히려 문제를 일으켜서, 대신 사진 자체를 4배로 키워서 선명하게 만든다.
-  const upscaled = await sharp(rawBuffer)
-    .resize({ width: clip.width * 4 })
-    .grayscale()
-    .normalize()
-    .sharpen()
-    .toBuffer()
-    .catch(() => rawBuffer);
-
-  let text = "";
   try {
-    const worker = await getOcrWorker();
-    await worker.setParameters({ tessedit_pageseg_mode: PSM.SINGLE_BLOCK }); // "문단이 아니라 짧은 블록"이라고 알려준다.
-    const result = await worker.recognize(upscaled);
-    text = result.data.text || "";
+    return await readResearcherInfo(popup, await getOcrWorker());
   } catch (e) {
-    return { name: "", phone: "", debug: `OCR 자체 오류: ${e}` };
+    return { name: "", phone: "", capture: null, cells: {}, debug: `OCR 오류: ${e}` };
   }
-
-  // OCR로 나온 글 뭉치에서 "성명" 글자 다음에 오는 단어, "휴대폰" 글자 다음에 오는 숫자를 찾는다.
-  const nameMatch = text.match(/성\s*명\s*[:：]?\s*([^\s\n]{2,10})/);
-  const phoneMatch = text.match(/휴\s*대\s*폰\s*[:：]?\s*([0-9\-]{9,13})/);
-
-  return {
-    name: nameMatch ? nameMatch[1].trim() : "",
-    phone: phoneMatch ? phoneMatch[1].trim() : "",
-    debug: `box=${JSON.stringify(nameBox)} OCR원문="${text.replace(/\n/g, " | ").slice(0, 200)}"`,
-  };
 }
 
 // ezbaro.go.kr (Nexacro 기반) 화면의 실제 입력 요소는 IDInfo가 매우 길고
@@ -604,22 +560,30 @@ export async function runAutomation(
       }
 
       // 성명·휴대폰은 HTML로는 시도하지 않고 오직 OCR로만 읽는다.
-      const ocrResult: OcrResult = await ocrResearcherInfoBlock(popup).catch(() => ({ name: "", phone: "" }));
-      const name = ocrResult.name || "";
-      const phone = ocrResult.phone || "";
+      const ocrResult = await ocrResearcherInfo(popup);
+      const name = preferGridSpelling(ocrResult.name, gridResearcher);
+      const phone = ocrResult.phone;
       const email = info.email || "";
       const bizNo = info.bizNo || "";
 
-      // 사람이 눈으로 검증할 수 있도록, 지금 보이는 화면을 사진으로 남겨둔다.
+      // 사람이 눈으로 검증할 수 있도록 화면 사진을 남겨둔다 — 글자 인식에 쓴 바로 그 캡처를 저장해서
+      // 결과가 이상하면 캡처와 그대로 대조할 수 있게 한다.
       // 다운로드 폴더 안에 과제번호별 폴더를 만들고, "과제번호_기관명.png"로 저장한다.
       // turbopackIgnore: 다운로드 폴더 경로라 프로그램에 넣을 파일이 아니다(빌드 도구가 프로젝트
       // 폴더 전체를 프로그램에 포함시키지 않도록 표시).
       const taskFolder = path.join(/*turbopackIgnore: true*/ captureRootDir(), sanitizeForFilename(taskNo));
       if (!fs.existsSync(/*turbopackIgnore: true*/ taskFolder)) fs.mkdirSync(taskFolder, { recursive: true });
       const previewFileName = `${sanitizeForFilename(taskNo)}_${sanitizeForFilename(orgName)}.png`;
-      await popup.screenshot({ path: path.join(taskFolder, previewFileName) }).catch(() => {});
+      if (ocrResult.capture) {
+        fs.writeFileSync(path.join(taskFolder, previewFileName), ocrResult.capture);
+      } else {
+        await popup.screenshot({ path: path.join(taskFolder, previewFileName) }).catch(() => {});
+      }
 
-      // 실제 화면 구조와 통신 기록을 나중에 직접 들여다볼 수 있도록 파일로 저장해둔다 (디버그용).
+      // 실제 화면 구조와 통신 기록, 글자 인식에 쓴 칸 이미지를 나중에 직접 들여다볼 수 있도록 저장해둔다 (디버그용).
+      const debugBase = `${sanitizeForFilename(taskNo)}_${r}`;
+      if (ocrResult.cells.name) fs.writeFileSync(path.join(DEBUG_DIR, `ocr_name_${debugBase}.png`), ocrResult.cells.name);
+      if (ocrResult.cells.phone) fs.writeFileSync(path.join(DEBUG_DIR, `ocr_phone_${debugBase}.png`), ocrResult.cells.phone);
       const html = await popup.content().catch(() => null);
       if (html) {
         fs.writeFileSync(path.join(DEBUG_DIR, `popup_${sanitizeForFilename(taskNo)}_${r}.html`), html, "utf-8");
@@ -634,13 +598,17 @@ export async function runAutomation(
 
       // 휴대폰·이메일은 사람에 따라 원래 없을 수 있어서 실패로 안 친다.
       // 성명(OCR)과 사업자등록번호(HTML)는 항상 있어야 정상이니, 이 둘이 다 비어있을 때만 "실패"로 본다.
-      if (!name && !bizNo) {
-        onProgress(`  -> ${r + 1}행 연구원 정보를 읽지 못했습니다. (기관유형: ${orgType}, 기관명: ${orgName}) [${ocrResult.debug || ""}]`);
-        results.push({ taskNo, year, orgType, orgName, gridResearcher, name, phone, email, bizNo, note: "항목추출실패" });
+      // 읽은 성명이 목록 화면의 연구책임자와 다르거나 비어 있으면, 사람이 캡처와 대조하도록 표시한다.
+      const notes: string[] = [];
+      if (!name && !bizNo) notes.push("항목추출실패");
+      if (needsNameCheck(name, gridResearcher)) notes.push("이름 확인 필요");
+      const note = notes.join(", ");
+      if (notes.length) {
+        onProgress(`  -> ${r + 1}행: ${orgName} / ${name || "(성명 못 읽음)"} / ${phone} / ${email} — ${note} [${ocrResult.debug}]`);
       } else {
         onProgress(`  -> ${r + 1}행: ${orgName} / ${name} / ${phone} / ${email}`);
-        results.push({ taskNo, year, orgType, orgName, gridResearcher, name, phone, email, bizNo, note: "" });
       }
+      results.push({ taskNo, year, orgType, orgName, gridResearcher, name, phone, email, bizNo, note });
     }
 
     onBatchDone(results);
